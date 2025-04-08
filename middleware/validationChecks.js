@@ -150,7 +150,7 @@ const validateVerifyEmail = [
       .trim()
       .escape()
       .isNumeric()
-      .withMessage("Verifiction code should only contain digits")
+      .withMessage("Verification code should only contain digits")
       .isLength({ min: 6, max: 6 })
       .withMessage("Verification code must be exactly 6 digits"),
   ];
