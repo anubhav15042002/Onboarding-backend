@@ -1,0 +1,743 @@
+const User = require("../models/user.js");
+const { validationResult } = require("express-validator");
+const {
+  hashPassword,
+  comparePasswords,
+  generateToken,
+} = require("../utils/authHelper.js");
+const {
+  generateVerificationCode,
+  generateRandomToken,
+} = require("../utils/functions.js");
+const {
+  sendVerificationEmail,
+  sendOTPEmail,
+} = require("../utils/nodemailer.js");
+const { sendVerificationSMS, sendOtpSMS } = require("../utils/twilio.js");
+
+// Register
+const register = async (req, res) => {
+  // Check for validation errors
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({
+      success: false,
+      message: errors.array()[0].msg,
+    });
+  }
+
+  try {
+    const {
+      firstName,
+      middleName,
+      lastName,
+      phoneNumber,
+      email,
+      addressLine1,
+      addressLine2,
+      country,
+      state,
+      city,
+      zipCode,
+      password,
+    } = req.body;
+
+    const existingUser = await User.findOne({
+      $or: [{ phoneNumber }, { email }],
+    });
+
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: "User already registered.",
+      });
+    }
+
+    const hashedPassword = await hashPassword(password);
+
+    const user = await User.create({
+      firstName,
+      middleName,
+      lastName,
+      phoneNumber,
+      email,
+      addressLine1,
+      addressLine2,
+      country,
+      state,
+      city,
+      zipCode,
+      password: hashedPassword,
+    });
+
+    const verifyCode = generateVerificationCode();
+    const verifyCodeExpire = Date.now() + 10 * 60 * 1000;
+    const verifyCodeSMS = generateVerificationCode();
+    const verifyCodeSMSExpire = Date.now() + 10 * 60 * 1000;
+    const tempToken = generateRandomToken(32);
+
+    user.verifyCode = verifyCode;
+    user.verifyCodeExpire = verifyCodeExpire;
+    user.verifyCodeSMS = verifyCodeSMS;
+    user.verifyCodeSMSExpire = verifyCodeSMSExpire;
+    user.tempToken = tempToken;
+
+    await user.save();
+
+    await sendVerificationEmail(email, verifyCode);
+    await sendVerificationSMS(phoneNumber, verifyCodeSMS);
+
+    return res.status(200).json({
+      success: true,
+      message: "User created successfully",
+      data: {
+        tempToken: tempToken,
+      },
+    });
+  } catch (error) {
+    console.log("Error while registering:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+// Verify email code
+const verifyEmail = async (req, res) => {
+  // Check for validation errors
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({
+      success: false,
+      message: errors.array()[0].msg,
+    });
+  }
+  const { tempToken, verifyCode } = req.body;
+
+  if (!tempToken || !verifyCode) {
+    return res.status(400).json({
+      success: false,
+      message: "Please provide a valid token or verification code.",
+    });
+  }
+
+  try {
+    const user = await User.findOne({
+      tempToken: tempToken,
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found.",
+      });
+    }
+
+    if (Date.now() > user.verifyCodeExpire) {
+      return res.status(400).json({
+        success: false,
+        message: "Verification Code has expired.",
+      });
+    }
+
+    if (user.verifyCode !== verifyCode) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid verification code.",
+      });
+    }
+
+    user.verifyCode = null;
+    user.verifyCodeExpire = null;
+    // user.tempToken = null;
+    user.isVerifiedByEmail = true;
+
+    await user.save();
+
+    if (user.isVerifiedByEmail && user.isVerifiedByPhone) {
+      user.tempToken = null;
+      await user.save();
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Email verified successfully.",
+    });
+  } catch (error) {
+    console.log("Error during email verification:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+// Verify SMS code
+const verifyPhone = async (req, res) => {
+  // Check for validation errors
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({
+      success: false,
+      message: errors.array()[0].msg,
+    });
+  }
+  const { tempToken, verifyCodeSMS } = req.body;
+
+  if (!tempToken || !verifyCodeSMS) {
+    return res.status(400).json({
+      success: false,
+      message: "Please provide a valid token or verification code.",
+    });
+  }
+
+  try {
+    const user = await User.findOne({
+      tempToken: tempToken,
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found.",
+      });
+    }
+
+    if (Date.now() > user.verifyCodeSMSExpire) {
+      return res.status(400).json({
+        success: false,
+        message: "Verification Code has expired.",
+      });
+    }
+
+    if (user.verifyCodeSMS !== verifyCodeSMS) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid verification code.",
+      });
+    }
+
+    user.verifyCodeSMS = null;
+    user.verifyCodeSMSExpire = null;
+    // user.tempToken = null;
+    user.isVerifiedByPhone = true;
+
+    await user.save();
+
+    if (user.isVerifiedByEmail && user.isVerifiedByPhone) {
+      user.tempToken = null;
+      await user.save();
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Phone number verified successfully.",
+    });
+  } catch (error) {
+    console.log("Error during phone number verification:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+// Resend email verification code
+const resendEmailCode = async (req, res) => {
+  // Check for validation errors
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({
+      success: false,
+      message: errors.array()[0].msg,
+    });
+  }
+  const { tempToken } = req.body;
+
+  if (!tempToken) {
+    return res.status(400).json({
+      success: false,
+      message: "Please provide a valid token",
+    });
+  }
+
+  try {
+    const user = await User.findOne({ tempToken });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    if (user.isVerifiedByEmail) {
+      return res.status(400).json({
+        success: false,
+        message: "User already verified by email.",
+      });
+    }
+
+    const verifyCode = generateVerificationCode();
+    const verifyCodeExpire = Date.now() + 10 * 60 * 1000;
+
+    user.verifyCode = verifyCode;
+    user.verifyCodeExpire = verifyCodeExpire;
+
+    await user.save();
+
+    await sendVerificationEmail(user.email, verifyCode);
+
+    return res.status(200).json({
+      success: true,
+      message: "Email verification code resent",
+    });
+  } catch (error) {
+    console.log("Error while resending verification code on email:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error.",
+    });
+  }
+};
+
+// Resend SMS verification code
+const resendSMSCode = async (req, res) => {
+  // Check for validation errors
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({
+      success: false,
+      message: errors.array()[0].msg,
+    });
+  }
+  const { tempToken } = req.body;
+
+  if (!tempToken) {
+    return res.status(400).json({
+      success: false,
+      message: "Please provide a valid token",
+    });
+  }
+
+  try {
+    const user = await User.findOne({ tempToken });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    if (user.isVerifiedByPhone) {
+      return res.status(400).json({
+        success: false,
+        message: "User already verified by SMS",
+      });
+    }
+
+    const verifyCodeSMS = generateVerificationCode();
+    const verifyCodeSMSExpire = Date.now() + 10 * 60 * 1000;
+
+    user.verifyCodeSMS = verifyCodeSMS;
+    user.verifyCodeSMSExpire = verifyCodeSMSExpire;
+
+    await user.save();
+
+    await sendVerificationSMS(user.phoneNumber, verifyCodeSMS);
+
+    return res.status(200).json({
+      success: true,
+      message: "SMS verification code resent",
+    });
+  } catch (error) {
+    console.log("Error while resending verification code on phone number:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error.",
+    });
+  }
+};
+
+// Login
+const login = async (req, res) => {
+  // Check for validation errors
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({
+      success: false,
+      message: errors.array()[0].msg,
+    });
+  }
+  const { loginID, password } = req.body;
+  try {
+    let user;
+
+    // Check if the loginID is an email or phone number
+    if (validateEmail(loginID)) {
+      user = await User.findOne({ email: loginID });
+    } else if (validatePhoneNumber(loginID)) {
+      user = await User.findOne({ phoneNumber: loginID });
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide valid email or phone number.",
+      });
+    }
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Login unsuccessful",
+      });
+    }
+
+    const result = await comparePasswords(password, user.password);
+
+    if (!result) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid credentials",
+      });
+    }
+
+    const token = generateToken(user._id);
+
+    return res.status(200).json({
+      success: true,
+      message: "Login Successful",
+      data: {
+        user: {
+          firstName: user.firstName,
+          isVerifiedByEmail: user.isVerifiedByEmail,
+          isVerifiedByPhone: user.isVerifiedByPhone,
+          tempToken: user.tempToken,
+        },
+        token: token,
+      },
+    });
+  } catch (error) {
+    console.error("Error during login:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+// Forgot password
+const forgotPassword = async (req, res) => {
+  // Check for validation errors
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({
+      success: false,
+      message: errors.array()[0].msg,
+    });
+  }
+  const { loginID } = req.body; // Only the loginID (email or phone number) is now required
+  try {
+    let user;
+
+    // Check if the loginID is an email or phone number
+    if (validateEmail(loginID)) {
+      user = await User.findOne({ email: loginID });
+    } else if (validatePhoneNumber(loginID)) {
+      user = await User.findOne({ phoneNumber: loginID });
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide valid email or phone number.",
+      });
+    }
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    const otp = generateVerificationCode();
+    const otpExpire = Date.now() + 10 * 60 * 1000; // OTP expires in 10 mins
+    const otpToken = generateRandomToken(32);
+    const otpTokenExpire = Date.now() + 3600000;
+
+    let via;
+    if (validateEmail(loginID)) {
+      via = "email";
+      await sendOTPEmail(loginID, otp); // Send OTP via email
+    } else if (validatePhoneNumber(loginID)) {
+      via = "phone";
+      await sendOtpSMS(loginID, otp); // Send OTP via SMS
+    }
+
+    // Save OTP and expiration time to the user's record
+    user.otp = otp;
+    user.otpExpire = otpExpire;
+    user.otpToken = otpToken;
+    user.otpTokenExpire = otpTokenExpire;
+    user.via = via;
+
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: `OTP sent to ${via}`,
+      data: {
+        otpToken: otpToken,
+      },
+    });
+  } catch (error) {
+    console.error("Error at forgot password:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+// Match OTP
+const verifyOTP = async (req, res) => {
+  // Check for validation errors
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({
+      success: false,
+      message: errors.array()[0].msg,
+    });
+  }
+  const { otpToken, otp } = req.body;
+
+  if (!otpToken || !otp) {
+    return res.status(400).json({
+      success: false,
+      message: "Please provide token and otp",
+    });
+  }
+  try {
+    const user = await User.findOne({
+      otpToken: otpToken,
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    if (Date.now() > user.otpTokenExpire) {
+      return res.status(400).json({
+        success: false,
+        message: "Token has expired",
+      });
+    }
+
+    if (Date.now() > user.otpExpire) {
+      return res.status(400).json({
+        success: false,
+        message: "OTP has expired",
+      });
+    }
+
+    if (user.otp !== otp) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid OTP",
+      });
+    }
+
+    const resetToken = generateRandomToken(32);
+    const resetTokenExpire = Date.now() + 3600000; // Token expires in 1 hour
+
+    user.otp = null;
+    user.otpExpire = null;
+    user.otpToken = null;
+    user.otpTokenExpire = null;
+    user.via = null;
+    user.resetToken = resetToken;
+    user.resetTokenExpire = resetTokenExpire;
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "OTP verified successfully",
+      data: {
+        resetToken: resetToken,
+      },
+    });
+  } catch (error) {
+    console.log("Error during otp verification:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+// Resend OTP
+const resendOTP = async (req, res) => {
+  // Check for validation errors
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({
+      success: false,
+      message: errors.array()[0].msg,
+    });
+  }
+  const { otpToken } = req.body;
+
+  if (!otpToken) {
+    return res
+      .status(400)
+      .json({ message: "Please provide a valid OTP Token" });
+  }
+
+  try {
+    const user = await User.findOne({ otpToken });
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    if (Date.now() > user.otpTokenExpire) {
+      return res.status(401).json({
+        message: "Token has expired",
+      });
+    }
+
+    if (user.via === "email") {
+      const otp = generateVerificationCode();
+      const otpExpire = Date.now() + 10 * 60 * 1000; // OTP expires in 10 mins
+
+      // Save OTP and expiration time to the applicant's record
+      user.otp = otp;
+      user.otpExpire = otpExpire;
+
+      await user.save();
+
+      await sendOTPEmail(user.email, otp);
+
+      return res.status(200).json({
+        success: true,
+        message: "OTP resent to email",
+      });
+    }
+
+    if (user.via === "phone") {
+      const otp = generateVerificationCode();
+      const otpExpire = Date.now() + 10 * 60 * 1000; // OTP expires in 10 mins
+
+      // Save OTP and expiration time to the applicant's record
+      user.otp = otp;
+      user.otpExpire = otpExpire;
+
+      await user.save();
+
+      await sendOtpSMS(user.phoneNumber, otp);
+      return res.status(200).json({
+        success: true,
+        message: "OTP resent to phone",
+      });
+    }
+  } catch (error) {
+    console.log("Error while resending OTP", error);
+    return res.status(500).json({
+      message: "Error resending the OTP",
+    });
+  }
+};
+
+// Reset Password API
+const resetPassword = async (req, res) => {
+  // Check for validation errors
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({
+      success: false,
+      message: errors.array()[0].msg,
+    });
+  }
+
+  const { resetToken, newPassword, confirmPassword } = req.body;
+
+  if (!resetToken || !newPassword || !confirmPassword) {
+    return res.status(400).json({
+      success: false,
+      message: "Please provide a token or new/confirm password.",
+    });
+  }
+
+  if (newPassword !== confirmPassword) {
+    return res.status(400).json({
+      success: false,
+      message: "Passwords do not match.",
+    });
+  }
+
+  try {
+    const user = await User.findOne({ resetToken });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    if (Date.now() > user.resetTokenExpire) {
+      return res.status(400).json({
+        success: false,
+        message: "Token has expired.",
+      });
+    }
+
+    const hashedPassword = await hashPassword(newPassword);
+
+    user.password = hashedPassword;
+    user.resetToken = null;
+    user.resetTokenExpire = null;
+
+    await user.save();
+
+    return res.status(201).json({
+      success: true,
+      message: "Password successfully reset.",
+    });
+  } catch (error) {
+    console.log("Error while resetting password", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error.",
+    });
+  }
+};
+
+// Utility functions to validate email and phone number
+const validateEmail = (email) => {
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  return emailRegex.test(email);
+};
+
+const validatePhoneNumber = (phoneNumber) => {
+  const phoneRegex = /^[0-9]{3,15}$/; // Adjust for your phone number format
+  return phoneRegex.test(phoneNumber);
+};
+
+module.exports = {
+  register,
+  verifyEmail,
+  verifyPhone,
+  resendEmailCode,
+  resendSMSCode,
+  login,
+  forgotPassword,
+  verifyOTP,
+  resendOTP,
+  resetPassword,
+};
