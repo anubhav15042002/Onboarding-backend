@@ -24,17 +24,17 @@ const validateRegister = [
     }),
 
     body("middleName")
-    .optional()
-    .trim()
-    .escape()
-    .isLength({ min: 3, max: 30 })
+    .optional({ checkFalsy: true }) // This will ignore empty strings, null, undefined, and false
+    .trim() // Remove any leading/trailing spaces
+    .escape() // Escape HTML characters to prevent XSS
+    .isLength({ min: 3, max: 30 }) // Ensure length is between 3 and 30 characters if provided
     .withMessage("Middle name must be between 3 to 30 characters")
     .custom((value) => {
-      if (!nameValidation(value)) {
+      if (value && !nameValidation(value)) { // Only run the custom validation if there's a value
         throw new Error("Middle name must only contain alphabets.");
       }
       return true;
-    }),
+    }),  
 
   body("lastName")
     .notEmpty()
