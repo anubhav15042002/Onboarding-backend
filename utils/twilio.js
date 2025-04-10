@@ -15,6 +15,7 @@ const sendVerificationSMS = async (phoneNumber, verificationCode) => {
       body: `Your verification code is: ${verificationCode}.It will expire in 10 minutes.`,
       from: process.env.TWILIO_PHONE_NUMBER, // Your Twilio number
       to: `${phoneNumber}`,
+      // riskCheck:"disable",
     });
     console.log("Verification SMS sent successfully!");
   } catch (error) {
