@@ -82,10 +82,10 @@ const register = async (req, res) => {
     user.verifyCodeSMSExpire = verifyCodeSMSExpire;
     user.tempToken = tempToken;
 
-    await user.save();
-
     await sendVerificationEmail(email, verifyCode);
     await sendVerificationSMS(phoneNumber, verifyCodeSMS);
+
+    await user.save();
 
     return res.status(200).json({
       success: true,

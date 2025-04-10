@@ -251,7 +251,7 @@ const validateResetPassword = [
     .notEmpty()
     .withMessage("Token is required")
     .isLength({ min: 64, max: 64 })
-    .withMessage("Token's length must be exactly 64")
+    .withMessage("Token's length must be exactly of 64 characters")
     .trim()
     .escape(),
 
