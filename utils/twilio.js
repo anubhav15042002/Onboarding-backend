@@ -14,7 +14,7 @@ const sendVerificationSMS = async (phoneNumber, verificationCode) => {
     await twilioClient.messages.create({
       body: `Your verification code is: ${verificationCode}.It will expire in 10 minutes.`,
       from: process.env.TWILIO_PHONE_NUMBER, // Your Twilio number
-      to: `+91${phoneNumber}`,
+      to: `${phoneNumber}`,
     });
     console.log("Verification SMS sent successfully!");
   } catch (error) {
@@ -28,7 +28,7 @@ const sendOtpSMS = async (phoneNumber, otp) => {
     await twilioClient.messages.create({
       body: `Your OTP is: ${otp}.It will expire in 10 minutes.`,
       from: process.env.TWILIO_PHONE_NUMBER, // Your Twilio number
-      to: `+91${phoneNumber}`,
+      to: `${phoneNumber}`,
     });
     console.log("OTP on SMS sent successfully!");
   } catch (error) {
