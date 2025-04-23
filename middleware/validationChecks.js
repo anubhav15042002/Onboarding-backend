@@ -23,19 +23,6 @@ const validateRegister = [
       return true;
     }),
 
-    body("middleName")
-    .optional({ checkFalsy: true }) // This will ignore empty strings, null, undefined, and false
-    .trim() // Remove any leading/trailing spaces
-    .escape() // Escape HTML characters to prevent XSS
-    .isLength({ min: 3, max: 30 }) // Ensure length is between 3 and 30 characters if provided
-    .withMessage("Middle name must be between 3 to 30 characters")
-    .custom((value) => {
-      if (value && !nameValidation(value)) { // Only run the custom validation if there's a value
-        throw new Error("Middle name must only contain alphabets.");
-      }
-      return true;
-    }),  
-
   body("lastName")
     .notEmpty()
     .withMessage("Last name is required")
@@ -49,6 +36,14 @@ const validateRegister = [
       }
       return true;
     }),
+
+    body("gender")
+    .notEmpty()
+    .withMessage("Gender is required")
+    .isIn(["male", "female", "others"])
+    .withMessage("Gender must be either 'male','female' or 'others'")
+    .trim()
+    .escape(),
 
   body("phoneNumber")
     .notEmpty()

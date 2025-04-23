@@ -29,8 +29,8 @@ const register = async (req, res) => {
   try {
     const {
       firstName,
-      middleName,
       lastName,
+      gender,
       phoneNumber,
       email,
       addressLine1,
@@ -57,8 +57,8 @@ const register = async (req, res) => {
 
     const user = await User.create({
       firstName,
-      middleName,
       lastName,
+      gender,
       phoneNumber,
       email,
       addressLine1,
@@ -442,7 +442,7 @@ const login = async (req, res) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: "Login unsuccessful",
+        message: "Invalid credentials",
       });
     }
 
@@ -463,6 +463,7 @@ const login = async (req, res) => {
       data: {
         user: {
           firstName: user.firstName,
+          lastName: user.lastName,
           isVerifiedByEmail: user.isVerifiedByEmail,
           isVerifiedByPhone: user.isVerifiedByPhone,
           tempToken: user.tempToken,

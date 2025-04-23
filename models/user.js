@@ -6,14 +6,15 @@ const UserSchema = new mongoose.Schema({
     required: true,
     maxLength: 30,
   },
-  middleName: {
-    type: String,
-    maxLength: 30,
-  },
   lastName: {
     type: String,
     required: true,
     maxLength: 30,
+  },
+  gender: {
+    type: String,
+    enum: ["male", "female", "others"],
+    required: true,
   },
   phoneNumber: {
     type: String,

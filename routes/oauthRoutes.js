@@ -26,17 +26,18 @@ router.get(
 );
 
 // Test route
-router.get("/me", (req, res) => {
+router.get("/details", (req, res) => {
   if (req.isAuthenticated()) {
     return res.status(200).json({
       success: true,
       user: {
         firstName: req.user.firstName,
-        email: req.user.email
+        lastName:req.user.lastName
+        //email: req.user.email
       }
     });
   }
-  return res.status(401).json({ success: false, message: "Not logged in" });
+  return res.status(403).json({ success: false, message: "Unauthorised" });
 });
 
 // Logout
@@ -116,7 +117,7 @@ router.post('/apple/callback', (req, res, next) => {
   console.log('Callback received from Apple');
   console.log('Content-Type:', req.headers['content-type']); // Should be application/x-www-form-urlencoded
   console.log('Request Body:', req.body); // Should now contain code, state, etc.
-  passport.authenticate('apple', { failureRedirect: 'https://google.com' }, (err, user, info) => {
+  passport.authenticate('apple', { failureRedirect: `${FRONTEND_URL}/register` }, (err, user, info) => {
     if (err || !user) {
       console.error('Authentication failed:', err, info); // Log any errors
       return res.redirect(`${FRONTEND_URL}/register`);
