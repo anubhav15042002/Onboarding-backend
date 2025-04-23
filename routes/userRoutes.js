@@ -1,6 +1,7 @@
 const express = require("express");
 const {
   register,
+  checkVerificationStatus,
   verifyEmail,
   verifyPhone,
   resendEmailCode,
@@ -26,6 +27,7 @@ const {
 const router = express.Router();
 
 router.post("/register", validateRegister, register);
+router.post("/verifyChecks" , validateResendCodes, checkVerificationStatus);
 router.post("/verifyEmail", validateVerifyEmail, verifyEmail);
 router.post("/verifyPhone", validateVerifyPhone, verifyPhone);
 router.post("/resendEmailCode", validateResendCodes, resendEmailCode);

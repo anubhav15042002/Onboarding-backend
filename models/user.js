@@ -17,19 +17,21 @@ const UserSchema = new mongoose.Schema({
   },
   phoneNumber: {
     type: String,
-    required: true,
+    // required: true,
     unique: true,
+    sparse: true,
     maxLength: 15,
   },
   email: {
     type: String,
     required: true,
     unique: true,
+    sparse: true,
     maxLength: 100,
   },
   addressLine1: {
     type: String,
-    required: true,
+    // required: true,
     maxLength: 200,
   },
   addressLine2: {
@@ -38,28 +40,28 @@ const UserSchema = new mongoose.Schema({
   },
   country: {
     type: String,
-    required: true,
+   // required: true,
     maxLength: 100,
   },
   state: {
     type: String,
-    required: true,
+  //  required: true,
     maxLength: 100,
   },
   city: {
     type: String,
-    required: true,
+   // required: true,
     maxLength: 100,
   },
   zipCode: {
     type: String,
-    required: true,
+   // required: true,
     maxLength: 18,
   },
   password: {
     type: String,
     minLength: 8,
-    required: true,
+  //  required: true,
   },
   verifyCode: {
     type: String,
@@ -106,6 +108,25 @@ const UserSchema = new mongoose.Schema({
   resetTokenExpire: {
     type: Date,
   },
+  // Google OAuth Fields
+  googleId: {
+    type: String,
+    unique: true,
+    sparse: true,
+  },
+  profilePicture: {
+    type: String,
+  },
+  facebookId: {
+    type: String,
+    unique: true,
+    sparse: true,
+  },
+  appleId: {
+    type: String,
+    unique: true,
+    sparse: true,
+  }
 });
 
 const User = mongoose.model("User", UserSchema);

@@ -103,6 +103,55 @@ const register = async (req, res) => {
   }
 };
 
+// Checks API
+const checkVerificationStatus = async (req, res) => {
+  // Check for validation errors
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({
+      success: false,
+      message: errors.array()[0].msg,
+    });
+  }
+  const { tempToken } = req.body;
+
+  if (!tempToken) {
+    return res.status(400).json({
+      success: false,
+      message: "Please provide a valid token",
+    });
+  }
+
+  try {
+    const user = await User.findOne({
+      tempToken: tempToken,
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found.",
+      });
+    }
+    else{
+      return res.status(200).json({
+        success: true,
+        message:"User found successfully",
+        data:{
+        isVerifiedByEmail: user.isVerifiedByEmail,
+        isVerifiedByPhone: user.isVerifiedByPhone,
+        }
+      })
+    }
+  } catch (error) {
+    console.log("Error at checks:" , checkVerificationStatus);
+    return res.status(500).json({
+      success: false,
+      message:"Internal server error"
+    })
+  }
+};
+
 // Verify email code
 const verifyEmail = async (req, res) => {
   // Check for validation errors
@@ -353,7 +402,10 @@ const resendSMSCode = async (req, res) => {
       message: "SMS verification code resent",
     });
   } catch (error) {
-    console.log("Error while resending verification code on phone number:", error);
+    console.log(
+      "Error while resending verification code on phone number:",
+      error
+    );
     res.status(500).json({
       success: false,
       message: "Internal server error.",
@@ -725,12 +777,13 @@ const validateEmail = (email) => {
 };
 
 const validatePhoneNumber = (phoneNumber) => {
-  const phoneRegex = /^[0-9]{3,15}$/; // Adjust for your phone number format
+  const phoneRegex = /^\+?[0-9]{3,15}$/; // Adjust for your phone number format
   return phoneRegex.test(phoneNumber);
 };
 
 module.exports = {
   register,
+  checkVerificationStatus,
   verifyEmail,
   verifyPhone,
   resendEmailCode,
