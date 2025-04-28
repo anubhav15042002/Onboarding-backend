@@ -6,7 +6,8 @@ passport.use(new FacebookStrategy({
   clientID: process.env.FACEBOOK_APP_ID,
   clientSecret: process.env.FACEBOOK_APP_SECRET,
   callbackURL: process.env.FACEBOOK_CALLBACK_URL,
-  profileFields: ['id', 'emails', 'name'] // Required to get email and name
+  profileFields: ['id', 'emails', 'name'], // Required to get email and name
+  enableProof: true
 }, async (accessToken, refreshToken, profile, done) => {
   try {
     console.log("Facebook Profile:", profile);
@@ -30,17 +31,23 @@ passport.use(new FacebookStrategy({
       
       // Create new user if not found
       if (!user) {
-        user = await User.create({
+        const isVerified = !!email;// ✅ only true if email is present
+
+        const newUserData = {
             facebookId: profile.id,
             email: email || null,
             firstName: profile.name?.givenName || '',
             lastName: profile.name?.familyName || '',
-            isVerifiedByEmail: !!email, // ✅ only true if email is present
-    
-        });
-      }
-    }
+            isVerifiedByEmail: isVerified,
+        };
 
+        if (isVerified) {
+          newUserData.verifyCode = null;
+          newUserData.verifyCodeExpire = null;
+        }
+        user = await User.create(newUserData);
+      }
+    } 
     return done(null, user);
   } catch (err) {
     return done(err, null);

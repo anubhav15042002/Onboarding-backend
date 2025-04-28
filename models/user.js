@@ -3,18 +3,18 @@ const mongoose = require("mongoose");
 const UserSchema = new mongoose.Schema({
   firstName: {
     type: String,
-    required: true,
+   // required: true,
     maxLength: 30,
   },
   lastName: {
     type: String,
-    required: true,
+  //  required: true,
     maxLength: 30,
   },
   gender: {
     type: String,
     enum: ["male", "female", "others"],
-    required: true,
+   // required: true,
   },
   phoneNumber: {
     type: String,
@@ -25,11 +25,16 @@ const UserSchema = new mongoose.Schema({
   },
   email: {
     type: String,
-    required: true,
+   // required: true,
     unique: true,
     sparse: true,
     maxLength: 100,
   },
+  appleEmail: { 
+    type: String, 
+    unique: true,
+    sparse: true 
+    },
   addressLine1: {
     type: String,
     // required: true,
@@ -127,6 +132,10 @@ const UserSchema = new mongoose.Schema({
     type: String,
     unique: true,
     sparse: true,
+  },
+  isSocialLogin:{
+    type: Boolean,
+    default: false
   }
 });
 

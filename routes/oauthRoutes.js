@@ -13,17 +13,56 @@ router.get(
   passport.authenticate("google", { scope: ["profile", "email"] })
 );
 
+
 // Google callback
-router.get(
-  "/google/callback",
-  passport.authenticate("google", { failureRedirect: `${FRONTEND_URL}/register` }),
-  (req, res) => {
-    // Successful login
-    // console.log("Session just before redirect:", req.session);
-   // console.log("Redirecting to:", `${FRONTEND_URL}/dashboard`);
-    res.redirect(`${FRONTEND_URL}/dashboard`); // Or send a response with session info
-  }
-);
+router.get('/google/callback', (req, res, next) => {
+  passport.authenticate('google', (err, user, info) => {
+    if (err || !user) {
+      console.error('Google login failed:', err || info);
+
+      // Destroy any temporary session if created
+      if (req.session) {
+        req.session.destroy((destroyErr) => {
+          if (destroyErr) {
+            console.error('Error destroying session:', destroyErr);
+          }
+          // Clear the session cookie after destroying session
+          res.clearCookie('connect.sid', { path: '/' }); 
+          return res.redirect(`${FRONTEND_URL}/`); // Redirect to the frontend
+        });
+      } else {
+        // Just clear cookie if session doesn't exist
+        res.clearCookie('connect.sid', { path: '/' });
+        return res.redirect(`${FRONTEND_URL}/`); // Redirect to the frontend  
+      }
+    } else {
+      // Login success: establish session manually
+      req.login(user, (loginErr) => {
+        if (loginErr) {
+          console.error('Error during login:', loginErr);
+          
+          // Destroy the session and clear the cookie if there's an error
+          if (req.session) {
+            req.session.destroy((destroyErr) => {
+              if (destroyErr) {
+                console.error('Error destroying session after login failure:', destroyErr);
+              }
+              res.clearCookie('connect.sid', { path: '/' }); // Clear the session cookie
+              return res.redirect(`${FRONTEND_URL}/`); // Redirect to error page
+            });
+          } else {
+            res.clearCookie('connect.sid', { path: '/'}); // Clear cookie if no session exists
+            return res.redirect(`${FRONTEND_URL}/`); // Redirect to error page
+          }
+        } else {
+          console.log('Google login successful, redirecting to dashboard');
+          return res.redirect(`${FRONTEND_URL}/dashboard`); // Redirect to dashboard after successful login
+        }
+      });
+    }
+  })(req, res, next);
+});
+
 
 // Test route
 router.get("/details", (req, res) => {
@@ -33,19 +72,36 @@ router.get("/details", (req, res) => {
       user: {
         firstName: req.user.firstName,
         lastName:req.user.lastName
-        //email: req.user.email
       }
     });
   }
-  return res.status(403).json({ success: false, message: "Unauthorised" });
+  return res.status(403).json({ success: false, message: "Unauthorized" });
 });
+
 
 // Logout
 router.get("/logout", (req, res) => {
   req.logout((err) => {
-    if (err)
-      return res.status(500).json({ success: false, message: "Logout failed" });
-    res.status(200).json({ success: true, message: "Logged out successfully" });
+    if (err) {
+      console.error('Logout error:', err);
+      return res.status(400).json({ success: false, message: "Logout failed" });
+    }
+    // Now destroy session too and clear cookie
+    if (req.session) {
+      req.session.destroy((destroyErr) => {
+        if (destroyErr) {
+          console.error('Error destroying session after logout:', destroyErr);
+          return res.status(500).json({ success: false, message: "Session destroy failed" });
+        }
+        // Clear the session cookie after session destroy
+        res.clearCookie('connect.sid', { path: '/' });
+        return res.status(200).json({ success: true, message: "Logged out successfully" });
+      });
+    } else {
+      // Clear cookie if session doesn't exist
+      res.clearCookie('connect.sid', { path: '/' });
+      return res.status(200).json({ success: true, message: "Logged out successfully" });
+    }
   });
 });
 
@@ -58,21 +114,51 @@ router.get(
   passport.authenticate("facebook", { scope: ["email", "public_profile"] })
 );
 
-router.get(
-  "/facebook/callback",
-  passport.authenticate("facebook", { failureRedirect: `${FRONTEND_URL}/register` }),
-  (req, res) => {
-    res.redirect(`${FRONTEND_URL}/dashboard`);
-    // res.status(200).json({
-    //   success: true,
-    //   message: "Facebook login successful",
-    //     user: {
-    //       firstName: req.user.firstName,
-    //       email: req.user.email
-    //     }
-    // })
-  }
-);
+router.get("/facebook/callback", (req, res, next) => {
+  passport.authenticate("facebook", async (err, user, info) => {
+    if (err || !user) {
+      console.error("Facebook login failed:", err || info);
+      // 1) Destroy any half-created session
+      if (req.session) {
+        req.session.destroy(destroyErr => {
+          if (destroyErr) {
+            console.error("Error destroying session:", destroyErr);
+          }
+          // 2) Clear the session cookie
+          res.clearCookie("connect.sid", { path: "/" });
+          return res.redirect(`${FRONTEND_URL}/`);
+        });
+      } else {
+        res.clearCookie("connect.sid", { path: "/" });
+        return res.redirect(`${FRONTEND_URL}/`);
+      }
+    } else {
+      // Successful login: establish session
+      req.login(user, loginErr => {
+        if (loginErr) {
+          console.error("Error during login:", loginErr);
+          // Same cleanup on req.login error
+          if (req.session) {
+            req.session.destroy(destroyErr => {
+              if (destroyErr) {
+                console.error("Error destroying session after login failure:", destroyErr);
+              }
+                res.clearCookie("connect.sid", { path: "/" });
+              return res.redirect(`${FRONTEND_URL}/`);
+            });
+          } else {
+            res.clearCookie("connect.sid", { path: "/" });
+            return res.redirect(`${FRONTEND_URL}/`);
+          }
+        } else {
+        // 3) On success, redirect and session cookie remains
+        console.log('Facebook login successful, redirecting to dashboard');
+        return res.redirect(`${FRONTEND_URL}/dashboard`);
+        }
+      });
+    }
+  })(req, res, next);  // Invoke the middleware with req, res, next
+});
 
 
 // =================   APPLE OAUTH =======================
@@ -80,57 +166,49 @@ router.get(
 
 router.get('/apple', passport.authenticate('apple'));
 
-// router.post('/apple/callback',
-//   passport.authenticate('apple', { failureRedirect: `${FRONTEND_URL}/register` }),
-//   (req, res) => {
-//     res.redirect(`${FRONTEND_URL}/dashboard`);
-//     //     res.status(200).json({
-//     //   success: true,
-//     //   message: "Apple login successful",
-//     //     user: {
-//     //       firstName: req.user.firstName,
-//     //       email: req.user.email
-//     //     }
-//     // })
-//   }
-// );
-
-
-// router.post('/apple/callback', (req, res, next) => {
-//   passport.authenticate('apple', { failureRedirect: `${FRONTEND_URL}/register` }, (err, user, info) => {
-//     if (err || !user) {
-//       console.error('Authentication failed:', err, info);
-//       return res.redirect(`${FRONTEND_URL}/register`);
-//     }
-//     req.logIn(user, (err) => {
-//       if (err) {
-//         console.error('Login failed:', err);
-//         return res.redirect(`${FRONTEND_URL}/register`);
-//       }
-//       console.log('Authenticated user:', user);
-//       return res.redirect(`${FRONTEND_URL}/dashboard`);
-//     });
-//   })(req, res, next);
-// });
 
 router.post('/apple/callback', (req, res, next) => {
   console.log('Callback received from Apple');
   console.log('Content-Type:', req.headers['content-type']); // Should be application/x-www-form-urlencoded
   console.log('Request Body:', req.body); // Should now contain code, state, etc.
-  passport.authenticate('apple', { failureRedirect: `${FRONTEND_URL}/register` }, (err, user, info) => {
+  passport.authenticate('apple', { failureRedirect: `${FRONTEND_URL}/` }, (err, user, info) => {
     if (err || !user) {
-      console.error('Authentication failed:', err, info); // Log any errors
-      return res.redirect(`${FRONTEND_URL}/register`);
-    }
-    req.logIn(user, (loginErr) => {
-      if (loginErr) {
-        console.error('Login failed:', loginErr);
-        return res.redirect(`${FRONTEND_URL}/register`);
+      console.error('Apple login failed:', err || info); // Log any errors
+      // 1) Destroy the half-baked session
+      if (req.session) {
+        req.session.destroy(destroyErr => {
+          if (destroyErr) console.error('Error destroying session:', destroyErr);
+          // 2) Clear the session cookie
+          res.clearCookie('connect.sid', { path: '/' });
+          return res.redirect(`${FRONTEND_URL}/`);
+        });
+      } else {
+        res.clearCookie('connect.sid', { path: '/' });
+        return res.redirect(`${FRONTEND_URL}/`);
       }
-      console.log('User authenticated:', user);
+    }
+    else {
+      // Successful login: establish session
+      req.login(user, (loginErr) => {
+      if (loginErr) {
+        console.error('Error during login:', loginErr);
+        if (req.session) {
+          req.session.destroy(destroyErr => {
+            if (destroyErr) console.error('Error destroying session after login failure:', destroyErr);
+            res.clearCookie('connect.sid', { path: '/' });
+            return res.redirect(`${FRONTEND_URL}/`);
+          });
+        } else {
+          res.clearCookie('connect.sid', { path: '/' });
+          return res.redirect(`${FRONTEND_URL}/`);
+        }
+      }
+      console.log('Apple login successful,redirecting to dashboard:', user);
       return res.redirect(`${FRONTEND_URL}/dashboard`);
     });
-  })(req, res, next);
+  }
+}
+  )(req, res, next);
 });
 
 module.exports = router;

@@ -464,6 +464,7 @@ const login = async (req, res) => {
         user: {
           firstName: user.firstName,
           lastName: user.lastName,
+          gender: user.gender,
           isVerifiedByEmail: user.isVerifiedByEmail,
           isVerifiedByPhone: user.isVerifiedByPhone,
           tempToken: user.tempToken,

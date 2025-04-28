@@ -148,7 +148,7 @@ const validateVerifyEmail = [
       .withMessage("Verification code should only contain digits")
       .isLength({ min: 6, max: 6 })
       .withMessage("Verification code must be exactly 6 digits"),
-  ];
+];
 
 // Verify phone number code middleware
 const validateVerifyPhone = [

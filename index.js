@@ -6,6 +6,7 @@ const router = require("./routes");
 const session = require('express-session');
 const MongoStore = require('connect-mongo');
 const passport = require('passport');
+const {cleanBrokenSession} = require('./utils/cleanBrokenSession');
 require('./config/passport');
 const app = express();
 
@@ -29,12 +30,6 @@ app.use(session({
     maxAge: 24 * 60 * 60 * 1000,
   },
 }));
-// Add logging to debug sessions
-app.use((req, res, next) => {
-  console.log('Session ID:', req.sessionID);
-  console.log('Session Data:', req.session);
-  next();
-});
 
 app.use(
   cors({
@@ -45,7 +40,17 @@ app.use(
 
 app.use(passport.initialize());
 app.use(passport.session());
+
+// Add logging to debug sessions
+app.use((req, res, next) => {
+  console.log('Session ID:', req.sessionID);
+  console.log('Session Data:', req.session);
+  next();
+});
+
+
 app.use('/onboarding' , router);
+app.use(cleanBrokenSession);
 
 app.use( "*", (req, res) => {
   return res.status(404).json({
