@@ -80,30 +80,30 @@ router.get("/details", (req, res) => {
 
 
 // Logout
-router.get("/logout", (req, res) => {
-  req.logout((err) => {
-    if (err) {
-      console.error('Logout error:', err);
-      return res.status(400).json({ success: false, message: "Logout failed" });
-    }
-    // Now destroy session too and clear cookie
-    if (req.session) {
-      req.session.destroy((destroyErr) => {
-        if (destroyErr) {
-          console.error('Error destroying session after logout:', destroyErr);
-          return res.status(500).json({ success: false, message: "Session destroy failed" });
-        }
-        // Clear the session cookie after session destroy
-        res.clearCookie('connect.sid', { path: '/' });
-        return res.status(200).json({ success: true, message: "Logged out successfully" });
-      });
-    } else {
-      // Clear cookie if session doesn't exist
-      res.clearCookie('connect.sid', { path: '/' });
-      return res.status(200).json({ success: true, message: "Logged out successfully" });
-    }
-  });
-});
+// router.get("/logout", (req, res) => {
+//   req.logout((err) => {
+//     if (err) {
+//       console.error('Logout error:', err);
+//       return res.status(400).json({ success: false, message: "Logout failed" });
+//     }
+//     // Now destroy session too and clear cookie
+//     if (req.session) {
+//       req.session.destroy((destroyErr) => {
+//         if (destroyErr) {
+//           console.error('Error destroying session after logout:', destroyErr);
+//           return res.status(500).json({ success: false, message: "Session destroy failed" });
+//         }
+//         // Clear the session cookie after session destroy
+//         res.clearCookie('connect.sid', { path: '/' });
+//         return res.status(200).json({ success: true, message: "Logged out successfully" });
+//       });
+//     } else {
+//       // Clear cookie if session doesn't exist
+//       res.clearCookie('connect.sid', { path: '/' });
+//       return res.status(200).json({ success: true, message: "Logged out successfully" });
+//     }
+//   });
+// });
 
 
 // =================   FACEBOOK OAUTH =======================
