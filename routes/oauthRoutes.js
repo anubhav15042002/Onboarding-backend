@@ -171,6 +171,11 @@ router.post('/apple/callback', (req, res, next) => {
   console.log('Callback received from Apple');
   console.log('Content-Type:', req.headers['content-type']); // Should be application/x-www-form-urlencoded
   console.log('Request Body:', req.body); // Should now contain code, state, etc.
+    //  Handle user cancellation
+    if (req.query.error === 'access_denied') {
+      console.log('User cancelled Apple login');
+      return res.redirect(`${FRONTEND_URL}/`);  // or any page you want
+    }
   passport.authenticate('apple', { failureRedirect: `${FRONTEND_URL}/` }, (err, user, info) => {
     if (err || !user) {
       console.error('Apple login failed:', err || info); // Log any errors
@@ -188,6 +193,10 @@ router.post('/apple/callback', (req, res, next) => {
       }
     }
     else {
+      console.log('✅ Apple callback hit');
+      console.log('Session ID:', req.sessionID);
+      console.log('Session Data (pre-login):', req.session);
+      console.log('User about to be logged in:', user);
       // Successful login: establish session
       req.login(user, (loginErr) => {
       if (loginErr) {
@@ -203,9 +212,17 @@ router.post('/apple/callback', (req, res, next) => {
           return res.redirect(`${FRONTEND_URL}/`);
         }
       }
+      
+      req.session.save((saveErr) => {
+        if (saveErr) {
+          console.error('Error saving session:', saveErr);
+        } else {
+          console.log('Session saved to MongoDB');
+        }
       console.log('Apple login successful,redirecting to dashboard:', user);
       return res.redirect(`${FRONTEND_URL}/dashboard`);
     });
+  });
   }
 }
   )(req, res, next);

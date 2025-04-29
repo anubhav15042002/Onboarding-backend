@@ -3,7 +3,7 @@ const { validationResult } = require("express-validator");
 const {
   hashPassword,
   comparePasswords,
-  generateToken,
+  // generateToken,
 } = require("../utils/authHelper.js");
 const {
   generateVerificationCode,
@@ -132,23 +132,22 @@ const checkVerificationStatus = async (req, res) => {
         success: false,
         message: "User not found.",
       });
-    }
-    else{
+    } else {
       return res.status(200).json({
         success: true,
-        message:"User found successfully",
-        data:{
-        isVerifiedByEmail: user.isVerifiedByEmail,
-        isVerifiedByPhone: user.isVerifiedByPhone,
-        }
-      })
+        message: "User found successfully",
+        data: {
+          isVerifiedByEmail: user.isVerifiedByEmail,
+          isVerifiedByPhone: user.isVerifiedByPhone,
+        },
+      });
     }
   } catch (error) {
-    console.log("Error at checks:" , checkVerificationStatus);
+    console.log("Error at checks:", checkVerificationStatus);
     return res.status(500).json({
       success: false,
-      message:"Internal server error"
-    })
+      message: "Internal server error",
+    });
   }
 };
 
@@ -455,22 +454,69 @@ const login = async (req, res) => {
       });
     }
 
-    const token = generateToken(user._id);
+    if (!user.tempToken) {
+      if (!user.isVerifiedByEmail || !user.isVerifiedByPhone) {
+        const tempToken = generateRandomToken(32);
+        user.tempToken = tempToken;
+        await user.save();
+      }
+    }
 
-    return res.status(200).json({
-      success: true,
-      message: "Login Successful",
-      data: {
-        user: {
-          firstName: user.firstName,
-          lastName: user.lastName,
-          gender: user.gender,
-          isVerifiedByEmail: user.isVerifiedByEmail,
-          isVerifiedByPhone: user.isVerifiedByPhone,
-          tempToken: user.tempToken,
-        },
-        token: token,
-      },
+    // const token = generateToken(user._id);
+
+    // return res.status(200).json({
+    //   success: true,
+    //   message: "Login Successful",
+    //   data: {
+    //     user: {
+    //       firstName: user.firstName,
+    //       lastName: user.lastName,
+    //       gender: user.gender,
+    //       isVerifiedByEmail: user.isVerifiedByEmail,
+    //       isVerifiedByPhone: user.isVerifiedByPhone,
+    //       tempToken: user.tempToken,
+    //     },
+    //     token: token,
+    //   },
+    // });
+
+    // ─── Session-based login starts here ───
+    req.session.regenerate((err) => {
+      if (err) {
+        console.error("Session regeneration error:", err);
+        return res.status(400).json({
+          success: false,
+          message: "Session error",
+        });
+      }
+
+      // Store only minimal info
+      req.session.userId = user._id;
+      req.session.loggedInAt = Date.now();
+
+      req.session.save((err) => {
+        if (err) {
+          console.error("Session save error:", err);
+          return res.status(400).json({
+            success: false,
+            message: "Session error",
+          });
+        }
+        return res.status(200).json({
+          success: true,
+          message: "Login successful",
+          data: {
+            user: {
+              firstName: user.firstName,
+              lastName: user.lastName,
+              gender: user.gender,
+              isVerifiedByEmail: user.isVerifiedByEmail,
+              isVerifiedByPhone: user.isVerifiedByPhone,
+              tempToken: user.tempToken,
+            },
+          },
+        });
+      });
     });
   } catch (error) {
     console.error("Error during login:", error);
