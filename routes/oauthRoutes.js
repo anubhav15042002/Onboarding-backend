@@ -65,18 +65,18 @@ router.get('/google/callback', (req, res, next) => {
 
 
 // Test route
-router.get("/details", (req, res) => {
-  if (req.isAuthenticated()) {
-    return res.status(200).json({
-      success: true,
-      user: {
-        firstName: req.user.firstName,
-        lastName:req.user.lastName
-      }
-    });
-  }
-  return res.status(403).json({ success: false, message: "Unauthorized" });
-});
+// router.get("/details", (req, res) => {
+//   if (req.isAuthenticated()) {
+//     return res.status(200).json({
+//       success: true,
+//       user: {
+//         firstName: req.user.firstName,
+//         lastName:req.user.lastName
+//       }
+//     });
+//   }
+//   return res.status(403).json({ success: false, message: "Unauthorized" });
+// });
 
 
 // Logout
@@ -193,7 +193,7 @@ router.post('/apple/callback', (req, res, next) => {
       }
     }
     else {
-      console.log('✅ Apple callback hit');
+      console.log('');
       console.log('Session ID:', req.sessionID);
       console.log('Session Data (pre-login):', req.session);
       console.log('User about to be logged in:', user);

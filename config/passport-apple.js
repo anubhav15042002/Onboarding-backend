@@ -3,6 +3,23 @@ const passport = require("passport");
 const User = require("../models/user");
 const jwt = require("jsonwebtoken");
 
+// Check this 1.
+
+// 🔥 Serialize user (store user id in session)
+// passport.serializeUser((user, done) => {
+//   done(null, user.id);  // or user._id
+// });
+
+// // 🔥 Deserialize user (get full user from id in session)
+// passport.deserializeUser(async (id, done) => {
+//   try {
+//     const user = await User.findById(id);
+//     done(null, user);
+//   } catch (err) {
+//     done(err, null);
+//   }
+// });
+
 //Helper to detect Apple Private Relay addresses
 function isPrivateRelay(email) {
   return typeof email === 'string' && email.endsWith('@privaterelay.appleid.com');
@@ -114,6 +131,9 @@ passport.use(
         }
       }
     }
+
+    // Check this 2.
+    // await user.validate().catch(err => console.error('Validation Error:', err));
 
     await user.save();
     return done(null, user);

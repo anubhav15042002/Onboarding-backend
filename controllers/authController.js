@@ -1,4 +1,5 @@
 const logout = (req, res) => {
+    
   try {
     // 1. Passport logout (clears req.user & session.passport)
     req.logout((err) => {
@@ -42,4 +43,38 @@ const logout = (req, res) => {
   }
 };
 
-module.exports = {logout};
+const getUserDetails = (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "User not authenticated",
+      });
+    }
+    const { firstName, lastName, gender } = req.user;
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        user: {
+          firstName: firstName,
+          lastName: lastName,
+          gender: gender,
+        },
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+// Middleware
+const isAuthenticated = (req, res, next) => {
+    if (req.isAuthenticated()) return next();
+    return res.status(401).json({ success: false, message: "Unauthorized" });
+  };
+
+module.exports = { logout, getUserDetails };
