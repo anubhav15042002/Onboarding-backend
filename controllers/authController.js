@@ -1,3 +1,5 @@
+const User = require("../models/user");
+
 const logout = (req, res) => {
     
   try {
@@ -43,15 +45,17 @@ const logout = (req, res) => {
   }
 };
 
-const getUserDetails = (req, res) => {
+const getUserDetails = async(req, res) => {
   try {
-    if (!req.user) {
+    console.log("Req",req.session.userId);
+    if (!req.session.userId) {
       return res.status(401).json({
         success: false,
         message: "User not authenticated",
       });
     }
-    const { firstName, lastName, gender } = req.user;
+    const userdata = await User.findById(req.session.userId);
+    const { firstName, lastName, gender } = userdata;
 
     return res.status(200).json({
       success: true,

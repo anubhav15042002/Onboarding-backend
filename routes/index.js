@@ -12,6 +12,6 @@ router.use("/auth", userRoutes);
 router.use("/oauth", oauthRoutes);
 
 router.post("/logout", logout);
-router.post("/getuserdetails", getUserDetails)
+router.get("/getuserdetails", getUserDetails)
 
 module.exports = router;

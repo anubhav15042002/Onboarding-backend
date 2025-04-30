@@ -454,6 +454,7 @@ const login = async (req, res) => {
       });
     }
 
+    // Check this logic also 
     if (!user.tempToken) {
       if (!user.isVerifiedByEmail || !user.isVerifiedByPhone) {
         const tempToken = generateRandomToken(32);
