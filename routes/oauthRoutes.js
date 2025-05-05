@@ -1,6 +1,7 @@
 const express = require("express");
 const passport = require("passport");
 const router = express.Router();
+const features = require("../config/features");
 const FRONTEND_URL = process.env.FRONTEND_URL
 
 
@@ -8,6 +9,7 @@ const FRONTEND_URL = process.env.FRONTEND_URL
 
 
 // Redirect to Google
+if(features.enableGoogleLogin){
 router.get(
   "/google",
   passport.authenticate("google", { scope: ["profile", "email"] })
@@ -62,6 +64,8 @@ router.get('/google/callback', (req, res, next) => {
     }
   })(req, res, next);
 });
+}
+
 
 
 // Test route
@@ -108,7 +112,7 @@ router.get('/google/callback', (req, res, next) => {
 
 // =================   FACEBOOK OAUTH =======================
 
-
+if(features.enableFacebookLogin){
 router.get(
   "/facebook",
   passport.authenticate("facebook", { scope: ["email", "public_profile"] })
@@ -159,11 +163,13 @@ router.get("/facebook/callback", (req, res, next) => {
     }
   })(req, res, next);  // Invoke the middleware with req, res, next
 });
+}
+
 
 
 // =================   APPLE OAUTH =======================
 
-
+if(features.enableAppleLogin){
 router.get('/apple', passport.authenticate('apple'));
 
 
@@ -172,10 +178,10 @@ router.post('/apple/callback', (req, res, next) => {
   console.log('Content-Type:', req.headers['content-type']); // Should be application/x-www-form-urlencoded
   console.log('Request Body:', req.body); // Should now contain code, state, etc.
     //  Handle user cancellation
-    if (req.query.error === 'access_denied') {
-      console.log('User cancelled Apple login');
-      return res.redirect(`${FRONTEND_URL}/`);  // or any page you want
-    }
+    // if (req.query.error === 'access_denied') {
+    //   console.log('User cancelled Apple login');
+    //   return res.redirect(`${FRONTEND_URL}/`);  // or any page you want
+    // }
   passport.authenticate('apple', { failureRedirect: `${FRONTEND_URL}/` }, (err, user, info) => {
     if (err || !user) {
       console.error('Apple login failed:', err || info); // Log any errors
@@ -216,9 +222,8 @@ router.post('/apple/callback', (req, res, next) => {
       req.session.save((saveErr) => {
         if (saveErr) {
           console.error('Error saving session:', saveErr);
-        } else {
+        } 
           console.log('Session saved to MongoDB');
-        }
       console.log('Apple login successful,redirecting to dashboard:', user);
       return res.redirect(`${FRONTEND_URL}/dashboard`);
     });
@@ -227,5 +232,7 @@ router.post('/apple/callback', (req, res, next) => {
 }
   )(req, res, next);
 });
+}
+
 
 module.exports = router;

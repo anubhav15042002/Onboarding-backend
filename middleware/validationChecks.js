@@ -118,7 +118,7 @@ const validateRegister = [
     .trim()
     .escape()
     .isLength({ min: 8, max: 20 })
-    .withMessage("Password must be between 8 and 20 characters.")
+    .withMessage("Password must be between 8 to 20 characters.")
     .custom((value) => {
       if (!passwordValidation(value)) {
         throw new Error(
@@ -141,7 +141,7 @@ const validateVerifyEmail = [
   
     body("verifyCode")
       .notEmpty()
-      .withMessage("Verifiction code is required")
+      .withMessage("Verification code is required")
       .trim()
       .escape()
       .isNumeric()
@@ -162,11 +162,11 @@ const validateVerifyPhone = [
 
   body("verifyCodeSMS")
     .notEmpty()
-    .withMessage("Verifiction code is required")
+    .withMessage("Verification code is required")
     .trim()
     .escape()
     .isNumeric()
-    .withMessage("Verifiction code should only contain digits")
+    .withMessage("Verification code should only contain digits")
     .isLength({ min: 6, max: 6 })
     .withMessage("Verification code must be exactly 6 digits"),
 ];
@@ -183,20 +183,47 @@ const validateResendCodes = [
 ];
 
 // Login middleware
-const validateLogin = [
-  body("loginID")
-    .notEmpty()
-    .withMessage("Login ID is required")
-    .trim()
-    .escape(),
+// const validateLogin = [
+//   body("loginID")
+//     .notEmpty()
+//     .withMessage("Login ID is required")
+//     .trim()
+//     .escape(),
 
-  body("password")
-    .notEmpty()
-    .withMessage("Password is required")
-    // .isLength({ min: 8 })
-    // .withMessage("Password must be at least 8 characters long")
-    .trim()
-    .escape(),
+//   body("password")
+//     .notEmpty()
+//     .withMessage("Password is required")
+//     // .isLength({ min: 8 })
+//     // .withMessage("Password must be at least 8 characters long")
+//     .trim()
+//     .escape(),
+// ];
+
+
+// Utility functions to validate email and phone number
+const validateEmail = (email) => {
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  return emailRegex.test(email);
+};
+
+const validatePhoneNumber = (phoneNumber) => {
+  const phoneRegex = /^\+?[0-9]{3,15}$/; // Adjust for your phone number format
+  return phoneRegex.test(phoneNumber);
+};
+
+// Login validation middleware
+const validateLogin = [
+  body('loginID')
+    .exists({ checkFalsy: true }).withMessage('loginID is required').bail()
+    .custom((val) => {
+      if (validateEmail(val) || validatePhoneNumber(val)) {
+        return true;
+      }
+      throw new Error('Please provide a valid email or phone number');
+    }),
+
+  body('password')
+    .exists({ checkFalsy: true }).withMessage('Password is required')
 ];
 
 // Forgot password middleware

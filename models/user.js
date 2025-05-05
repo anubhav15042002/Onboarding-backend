@@ -133,10 +133,6 @@ const UserSchema = new mongoose.Schema({
     unique: true,
     sparse: true,
   },
-  isSocialLogin:{
-    type: Boolean,
-    default: false
-  }
 });
 
 const User = mongoose.model("User", UserSchema);

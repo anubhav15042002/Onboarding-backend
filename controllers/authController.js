@@ -45,40 +45,63 @@ const logout = (req, res) => {
   }
 };
 
-const getUserDetails = async(req, res) => {
-  try {
-    console.log("Req",req.session.userId);
-    if (!req.session.userId) {
-      return res.status(401).json({
-        success: false,
-        message: "User not authenticated",
-      });
-    }
-    const userdata = await User.findById(req.session.userId);
-    const { firstName, lastName, gender } = userdata;
+// const getUserDetails = async(req, res) => {
+//   try {
+//     console.log("Req",req.session.userId);
+//     if (!req.session.userId) {
+//       return res.status(401).json({
+//         success: false,
+//         message: "User not authenticated",
+//       });
+//     }
+//     const userdata = await User.findById(req.session.userId);
+//     const { firstName, lastName, gender } = userdata;
 
+//     return res.status(200).json({
+//       success: true,
+//       data: {
+//         user: {
+//           firstName: firstName,
+//           lastName: lastName,
+//           gender: gender,
+//         },
+//       },
+//     });
+//   } catch (error) {
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal server error",
+//     });
+//   }
+// };
+
+const getUserDetails = async (req, res) => {
+  try{
+  if (req.isAuthenticated()) {
     return res.status(200).json({
       success: true,
-      data: {
-        user: {
-          firstName: firstName,
-          lastName: lastName,
-          gender: gender,
-        },
-      },
+      user: {
+        firstName: req.user.firstName,
+        lastName:req.user.lastName,
+        gender:req.user.gender
+      }
     });
-  } catch (error) {
+  }
+ else { 
+  return res.status(403).json({
+     success: false, 
+     message: "Unauthorized" 
+    });
+}
+}catch(error){
+  console.log("Error:",error);
     return res.status(500).json({
       success: false,
-      message: "Internal server error",
-    });
+      message: "Internal server error"
+    })
   }
 };
 
-// Middleware
-const isAuthenticated = (req, res, next) => {
-    if (req.isAuthenticated()) return next();
-    return res.status(401).json({ success: false, message: "Unauthorized" });
-  };
+
 
 module.exports = { logout, getUserDetails };
