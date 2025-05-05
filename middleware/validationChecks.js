@@ -182,6 +182,17 @@ const validateResendCodes = [
     .withMessage("Token must be exactly 64 characters"),
 ];
 
+// Continue to dashboard middleware
+const validateContinueToDashboard = [
+  body("registerToken")
+    .notEmpty()
+    .withMessage("Token is required")
+    .isLength({ min: 64, max: 64 })
+    .withMessage("Token's length must be exactly of 64 characters")
+    .trim()
+    .escape(),
+];
+
 // Login middleware
 // const validateLogin = [
 //   body("loginID")
@@ -305,6 +316,7 @@ module.exports = {
   validateVerifyEmail,
   validateVerifyPhone,
   validateResendCodes,
+  validateContinueToDashboard,
   validateLogin,
   validateForgotPassword,
   validateVerifyOTP,

@@ -11,6 +11,7 @@ const {
   verifyOTP,
   resendOTP,
   resetPassword,
+  continueToDashboard,
 } = require("../controllers/userController");
 const {
   validateRegister,
@@ -22,6 +23,7 @@ const {
   validateVerifyOTP,
   validateResendOTP,
   validateResetPassword,
+  validateContinueToDashboard,
 } = require("../middleware/validationChecks");
 
 const router = express.Router();
@@ -32,6 +34,7 @@ router.post("/verifyEmail", validateVerifyEmail, verifyEmail);
 router.post("/verifyPhone", validateVerifyPhone, verifyPhone);
 router.post("/resendEmailCode", validateResendCodes, resendEmailCode);
 router.post("/resendSMSCode", validateResendCodes, resendSMSCode);
+router.post("/continuetodashboard", validateContinueToDashboard, continueToDashboard);
 router.post("/login", validateLogin, login);
 router.post("/forgotPassword", validateForgotPassword, forgotPassword);
 router.post("/verifyOTP", validateVerifyOTP, verifyOTP);

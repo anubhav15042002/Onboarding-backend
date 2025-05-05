@@ -3,6 +3,7 @@ const User = require("../models/user");
 const logout = (req, res) => {
     
   try {
+    if (req.isAuthenticated()) {
     // 1. Passport logout (clears req.user & session.passport)
     req.logout((err) => {
       if (err) {
@@ -36,7 +37,14 @@ const logout = (req, res) => {
           .json({ success: true, message: "Logged out successfully" });
       }
     });
-  } catch (error) {
+ }
+else{
+  return res.status(403).json({
+    success: false, 
+    message: "Unauthorized" 
+   });
+}
+ } catch (error) {
     console.log("Error:", error);
     return res.status(500).json({
       success: false,
@@ -101,7 +109,6 @@ const getUserDetails = async (req, res) => {
     })
   }
 };
-
 
 
 module.exports = { logout, getUserDetails };

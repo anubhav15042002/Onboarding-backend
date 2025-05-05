@@ -84,6 +84,9 @@ const UserSchema = new mongoose.Schema({
   tempToken: {
     type: String,
   },
+  registerToken: {
+    type: String,
+  },
   isVerifiedByEmail: {
     type: Boolean,
     default: false,

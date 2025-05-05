@@ -14,7 +14,7 @@ const {
   sendOTPEmail,
 } = require("../utils/nodemailer.js");
 const { sendVerificationSMS, sendOtpSMS } = require("../utils/twilio.js");
-const features = require("../config/features.js")
+const features = require("../config/features.js");
 const passport = require("passport");
 
 // Register
@@ -60,34 +60,35 @@ const register = async (req, res) => {
     const verifyCodeSMS = generateVerificationCode();
     const verifyCodeSMSExpire = Date.now() + 10 * 60 * 1000;
     const tempToken = generateRandomToken(32);
+    const registerToken = generateRandomToken(32);
 
-    if(features.enableTwilio){
-    try {
-      await sendVerificationSMS(phoneNumber, verifyCodeSMS);
-    } catch (error) {
-      console.error("Failed to send verification SMS:", error);
-      return res.status(400).json({
-        success: false,
-        message: "Error sending SMS",
-      });
+    if (features.enableTwilio) {
+      try {
+        await sendVerificationSMS(phoneNumber, verifyCodeSMS);
+      } catch (error) {
+        console.error("Failed to send verification SMS:", error);
+        return res.status(400).json({
+          success: false,
+          message: "Error sending SMS",
+        });
+      }
+    } else {
+      console.log("Twilio integration is disabled");
     }
-  } else{
-    console.log("Twilio integration is disabled");
-  }
 
-  if(features.enableNodemailer){
-    try {
-      await sendVerificationEmail(email, verifyCode);
-    } catch (error) {
-      console.error("Failed to send verification email:", error);
-      return res.status(400).json({
-        success: false,
-        message: "Error sending email",
-      });
+    if (features.enableNodemailer) {
+      try {
+        await sendVerificationEmail(email, verifyCode);
+      } catch (error) {
+        console.error("Failed to send verification email:", error);
+        return res.status(400).json({
+          success: false,
+          message: "Error sending email",
+        });
+      }
+    } else {
+      console.log("Nodemailer integration is disabled");
     }
-  } else{
-    console.log("Nodemailer integration is disabled");
-  }
 
     const hashedPassword = await hashPassword(password);
 
@@ -109,6 +110,7 @@ const register = async (req, res) => {
       verifyCodeSMS,
       verifyCodeSMSExpire,
       tempToken,
+      registerToken,
     });
 
     return res.status(200).json({
@@ -116,6 +118,7 @@ const register = async (req, res) => {
       message: "User created successfully",
       data: {
         tempToken: tempToken,
+        registerToken: registerToken
       },
     });
   } catch (error) {
@@ -317,12 +320,12 @@ const verifyPhone = async (req, res) => {
 
 // Resend email verification code
 const resendEmailCode = async (req, res) => {
-  if(!features.enableNodemailer){
+  if (!features.enableNodemailer) {
     console.log("Nodemailer integration is disabled");
-      return res.status(503).json({
-        success: false,
-        message: "Email feature is temporarily disabled"
-      })
+    return res.status(503).json({
+      success: false,
+      message: "Email feature is temporarily disabled",
+    });
   }
   // Check for validation errors
   const errors = validationResult(req);
@@ -383,12 +386,12 @@ const resendEmailCode = async (req, res) => {
 
 // Resend SMS verification code
 const resendSMSCode = async (req, res) => {
-  if(!features.enableTwilio){
+  if (!features.enableTwilio) {
     console.log("Twilio integration is disabled");
-      return res.status(503).json({
-        success: false,
-        message: "SMS feature is temporarily disabled"
-      })
+    return res.status(503).json({
+      success: false,
+      message: "SMS feature is temporarily disabled",
+    });
   }
   // Check for validation errors
   const errors = validationResult(req);
@@ -450,10 +453,9 @@ const resendSMSCode = async (req, res) => {
   }
 };
 
-// Login  
-const login = (req, res, next) => {
-
- // 1️⃣ Validate input (loginID & password)  
+// Continue to Dashboard
+const continueToDashboard = async (req, res, next) => {
+  // 1️⃣ Validate input
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return res.status(400).json({
@@ -462,29 +464,87 @@ const login = (req, res, next) => {
     });
   }
 
-   // 2️⃣ Authenticate via Passport LocalStrategy
-  passport.authenticate('local', (err, user, info) => {
-    if (err) {
-      console.error('Auth error:', err || info);
-      return res.status(400).json({
+  const { registerToken } = req.body;
+
+  try {
+    // 2️⃣ Lookup user by tempToken
+    const user = await User.findOne({ registerToken });
+   
+    if (!user) {
+      return res.status(401).json({
         success: false,
-        message: 'Error during authentication'
-      })
+        message: "Invalid or expired token",
+      });
     }
-    
-    if(!user){
-      console.log("Mila nhi")
-      return res.status(404).json({
+
+    if(!user.isVerifiedByEmail || !user.isVerifiedByPhone){
+      return res.status(401).json({
         success: false,
-        message: "Invalid credentials"
+        message: "Profile not verified yet."
       })
     }
 
-     // 3️⃣ Establish session
-    req.login(user, async loginErr => {
+    // 3️⃣ Establish session
+    req.login(user, (err) => {
+      if (err) {
+        console.error("Auto-login error:", err);
+        return res.status(400).json({
+          success: false,
+          message: "Could not establish session",
+        });
+      }
+
+      // 4️⃣ Redirect or respond
+      return res.status(200).json({
+        success: true,
+        message: "Session established",
+      });
+    });
+  } catch (err) {
+    console.error("Continue error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+// Login
+const login = (req, res, next) => {
+  // 1️⃣ Validate input (loginID & password)
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({
+      success: false,
+      message: errors.array()[0].msg,
+    });
+  }
+
+  // 2️⃣ Authenticate via Passport LocalStrategy
+  passport.authenticate("local", (err, user, info) => {
+    if (err) {
+      console.error("Auth error:", err || info);
+      return res.status(400).json({
+        success: false,
+        message: "Error during authentication",
+      });
+    }
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Invalid credentials",
+      });
+    }
+
+    // 3️⃣ Establish session
+    req.login(user, async (loginErr) => {
       if (loginErr) {
-        console.error('Session error:', loginErr);
-        return res.status(500).json({ success: false, message: 'Could not establish session' });
+        console.error("Session error:", loginErr);
+        return res.status(400).json({
+          success: false,
+          message: "Could not establish session",
+        });
       }
 
       // 4️⃣ tempToken logic goes here in controller
@@ -496,37 +556,39 @@ const login = (req, res, next) => {
             await user.save();
           }
         }
+        if(user.registerToken){
+          user.registerToken = null;
+          await user.save();
+        }
       } catch (error) {
-        console.error('TempToken error:', tokenErr);
+        console.error("TempToken error:", tokenErr);
         return res.status(500).json({
           success: false,
-          message: "Error during tokenisation"
-        })
+          message: "Error during tokenisation",
+        });
       }
 
-
-     // 5️⃣ Send response
-     return res.status(200).json({
-      success: true,
-      message: 'Login successful',
-      data: {
-        user: {
-          firstName: user.firstName,
-          lastName: user.lastName,
-          gender: user.gender,
-          isVerifiedByEmail: user.isVerifiedByEmail,
-          isVerifiedByPhone: user.isVerifiedByPhone,
-          tempToken: user.tempToken
-        }
-      }
+      // 5️⃣ Send response
+      return res.status(200).json({
+        success: true,
+        message: "Login successful",
+        data: {
+          user: {
+            firstName: user.firstName,
+            lastName: user.lastName,
+            gender: user.gender,
+            isVerifiedByEmail: user.isVerifiedByEmail,
+            isVerifiedByPhone: user.isVerifiedByPhone,
+            tempToken: user.tempToken,
+          },
+        },
+      });
     });
-  });
-})(req, res, next);
+  })(req, res, next);
 };
 
+// ─── Session-based login starts here ───
 
-    // ─── Session-based login starts here ───
-   
 //     req.session.regenerate((err) => {
 //       if (err) {
 //         console.error("Session regeneration error:", err);
@@ -575,96 +637,95 @@ const login = (req, res, next) => {
 
 // Forgot password
 const forgotPassword = async (req, res) => {
-  if( features.enableNodemailer || features.enableTwilio ){
-  // Check for validation errors
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      success: false,
-      message: errors.array()[0].msg,
-    });
-  }
-  const { loginID } = req.body; // Only the loginID (email or phone number) is now required
-  try {
-    let user;
-
-    // Check if the loginID is an email or phone number
-    if (validateEmail(loginID)) {
-      user = await User.findOne({ email: loginID });
-    } else if (validatePhoneNumber(loginID)) {
-      user = await User.findOne({ phoneNumber: loginID });
-    } else {
+  if (features.enableNodemailer || features.enableTwilio) {
+    // Check for validation errors
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
       return res.status(400).json({
         success: false,
-        message: "Please provide valid email or phone number.",
+        message: errors.array()[0].msg,
       });
     }
+    const { loginID } = req.body; // Only the loginID (email or phone number) is now required
+    try {
+      let user;
 
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
-
-    const otp = generateVerificationCode();
-    const otpExpire = Date.now() + 10 * 60 * 1000; // OTP expires in 10 mins
-    const otpToken = generateRandomToken(32);
-    const otpTokenExpire = Date.now() + 3600000;
-
-    let via;
-    if (validateEmail(loginID)) {
-      via = "email";
-      if(features.enableNodemailer){
-      await sendOTPEmail(loginID, otp); // Send OTP via email
-      } else{
-        return res.status(503).json({
-          success: false,
-          message: "Email feature is temporarily disabled"
-        })
-      }
-
-    } else if (validatePhoneNumber(loginID)) {
-      via = "phone";
-      if(features.enableTwilio){
-      await sendOtpSMS(loginID, otp); // Send OTP via SMS
+      // Check if the loginID is an email or phone number
+      if (validateEmail(loginID)) {
+        user = await User.findOne({ email: loginID });
+      } else if (validatePhoneNumber(loginID)) {
+        user = await User.findOne({ phoneNumber: loginID });
       } else {
-        return res.status(503).json({
+        return res.status(400).json({
           success: false,
-          message: "SMS feature is temporarily disabled"
-        })
+          message: "Please provide valid email or phone number.",
+        });
       }
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found",
+        });
+      }
+
+      const otp = generateVerificationCode();
+      const otpExpire = Date.now() + 10 * 60 * 1000; // OTP expires in 10 mins
+      const otpToken = generateRandomToken(32);
+      const otpTokenExpire = Date.now() + 3600000;
+
+      let via;
+      if (validateEmail(loginID)) {
+        via = "email";
+        if (features.enableNodemailer) {
+          await sendOTPEmail(loginID, otp); // Send OTP via email
+        } else {
+          return res.status(503).json({
+            success: false,
+            message: "Email feature is temporarily disabled",
+          });
+        }
+      } else if (validatePhoneNumber(loginID)) {
+        via = "phone";
+        if (features.enableTwilio) {
+          await sendOtpSMS(loginID, otp); // Send OTP via SMS
+        } else {
+          return res.status(503).json({
+            success: false,
+            message: "SMS feature is temporarily disabled",
+          });
+        }
+      }
+
+      // Save OTP and expiration time to the user's record
+      user.otp = otp;
+      user.otpExpire = otpExpire;
+      user.otpToken = otpToken;
+      user.otpTokenExpire = otpTokenExpire;
+      user.via = via;
+
+      await user.save();
+
+      return res.status(200).json({
+        success: true,
+        message: `OTP sent to ${via}`,
+        data: {
+          otpToken: otpToken,
+        },
+      });
+    } catch (error) {
+      console.error("Error at forgot password:", error);
+      res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
     }
-
-    // Save OTP and expiration time to the user's record
-    user.otp = otp;
-    user.otpExpire = otpExpire;
-    user.otpToken = otpToken;
-    user.otpTokenExpire = otpTokenExpire;
-    user.via = via;
-
-    await user.save();
-
-    return res.status(200).json({
-      success: true,
-      message: `OTP sent to ${via}`,
-      data: {
-        otpToken: otpToken,
-      },
-    });
-  } catch (error) {
-    console.error("Error at forgot password:", error);
-    res.status(500).json({
+  } else {
+    return res.status(503).json({
       success: false,
-      message: "Internal server error",
+      message: "OTP sending feature is temporarily disabled",
     });
   }
-} else {
-  return res.status(503).json({
-    success: false,
-    message: "OTP sending feature is temporarily disabled"
-  })
-}
 };
 
 // Match OTP
@@ -748,102 +809,100 @@ const verifyOTP = async (req, res) => {
 
 // Resend OTP
 const resendOTP = async (req, res) => {
-  if( features.enableNodemailer || features.enableTwilio ){
-  // Check for validation errors
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
+  if (features.enableNodemailer || features.enableTwilio) {
+    // Check for validation errors
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: errors.array()[0].msg,
+      });
+    }
+    const { otpToken } = req.body;
+
+    if (!otpToken) {
+      return res
+        .status(400)
+        .json({ message: "Please provide a valid OTP Token" });
+    }
+
+    try {
+      const user = await User.findOne({ otpToken });
+
+      if (!user) {
+        return res.status(404).json({
+          message: "User not found",
+        });
+      }
+
+      if (Date.now() > user.otpTokenExpire) {
+        return res.status(401).json({
+          message: "Token has expired",
+        });
+      }
+
+      if (user.via === "email") {
+        if (features.enableNodemailer) {
+          const otp = generateVerificationCode();
+          const otpExpire = Date.now() + 10 * 60 * 1000; // OTP expires in 10 mins
+
+          // Save OTP and expiration time to the applicant's record
+          user.otp = otp;
+          user.otpExpire = otpExpire;
+
+          await user.save();
+
+          await sendOTPEmail(user.email, otp);
+
+          return res.status(200).json({
+            success: true,
+            message: "OTP resent to email",
+          });
+        } else {
+          console.log("Nodemailer integration is disabled");
+          return res.status(503).json({
+            success: false,
+            message: "Email feature is temporarily disabled",
+          });
+        }
+      }
+
+      if (user.via === "phone") {
+        if (features.enableTwilio) {
+          const otp = generateVerificationCode();
+          const otpExpire = Date.now() + 10 * 60 * 1000; // OTP expires in 10 mins
+
+          // Save OTP and expiration time to the applicant's record
+          user.otp = otp;
+          user.otpExpire = otpExpire;
+
+          await user.save();
+
+          await sendOtpSMS(user.phoneNumber, otp);
+          return res.status(200).json({
+            success: true,
+            message: "OTP resent to phone",
+          });
+        } else {
+          return res.status(503).json({
+            success: false,
+            message: "SMS feature is temporarily disabled",
+          });
+        }
+      }
+    } catch (error) {
+      console.log("Error while resending OTP", error);
+      return res.status(500).json({
+        message: "Error resending the OTP",
+      });
+    }
+  } else {
+    console.log("Both Nodemailer and Twilio integrations are disabled");
+    return res.status(503).json({
       success: false,
-      message: errors.array()[0].msg,
+      message: "OTP sending feature is temporarily disabled",
     });
   }
-  const { otpToken } = req.body;
-
-  if (!otpToken) {
-    return res
-      .status(400)
-      .json({ message: "Please provide a valid OTP Token" });
-  }
-
-  try {
-    const user = await User.findOne({ otpToken });
-
-    if (!user) {
-      return res.status(404).json({
-        message: "User not found",
-      });
-    }
-
-    if (Date.now() > user.otpTokenExpire) {
-      return res.status(401).json({
-        message: "Token has expired",
-      });
-    }
-
-    if (user.via === "email") {
-      if(features.enableNodemailer){
-      const otp = generateVerificationCode();
-      const otpExpire = Date.now() + 10 * 60 * 1000; // OTP expires in 10 mins
-
-      // Save OTP and expiration time to the applicant's record
-      user.otp = otp;
-      user.otpExpire = otpExpire;
-
-      await user.save();
-
-      await sendOTPEmail(user.email, otp);
-
-      return res.status(200).json({
-        success: true,
-        message: "OTP resent to email",
-      });
-    }
-    else{
-      console.log("Nodemailer integration is disabled");
-      return res.status(503).json({
-        success: false,
-        message: "Email feature is temporarily disabled"
-      })
-    }
-    }
-
-    
-    if (user.via === "phone") {
-      if(features.enableTwilio){
-      const otp = generateVerificationCode();
-      const otpExpire = Date.now() + 10 * 60 * 1000; // OTP expires in 10 mins
-
-      // Save OTP and expiration time to the applicant's record
-      user.otp = otp;
-      user.otpExpire = otpExpire;
-
-      await user.save();
-
-      await sendOtpSMS(user.phoneNumber, otp);
-      return res.status(200).json({
-        success: true,
-        message: "OTP resent to phone",
-      });
-    } else {
-      return res.status(503).json({
-        success: false,
-        message: "SMS feature is temporarily disabled"
-      })
-    }
-    }
-  } catch (error) {
-    console.log("Error while resending OTP", error);
-    return res.status(500).json({
-      message: "Error resending the OTP",
-    });
-  }
-} else {
-  console.log("Both Nodemailer and Twilio integrations are disabled");
-  return res.status(503).json({
-    success: false,
-    message: "OTP sending feature is temporarily disabled"
-  })
-}
 };
 
 // Reset Password API
@@ -929,6 +988,7 @@ module.exports = {
   verifyPhone,
   resendEmailCode,
   resendSMSCode,
+  continueToDashboard,
   login,
   forgotPassword,
   verifyOTP,
