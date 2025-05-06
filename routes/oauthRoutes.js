@@ -67,49 +67,6 @@ router.get('/google/callback', (req, res, next) => {
 }
 
 
-
-// Test route
-// router.get("/details", (req, res) => {
-//   if (req.isAuthenticated()) {
-//     return res.status(200).json({
-//       success: true,
-//       user: {
-//         firstName: req.user.firstName,
-//         lastName:req.user.lastName
-//       }
-//     });
-//   }
-//   return res.status(403).json({ success: false, message: "Unauthorized" });
-// });
-
-
-// Logout
-// router.get("/logout", (req, res) => {
-//   req.logout((err) => {
-//     if (err) {
-//       console.error('Logout error:', err);
-//       return res.status(400).json({ success: false, message: "Logout failed" });
-//     }
-//     // Now destroy session too and clear cookie
-//     if (req.session) {
-//       req.session.destroy((destroyErr) => {
-//         if (destroyErr) {
-//           console.error('Error destroying session after logout:', destroyErr);
-//           return res.status(500).json({ success: false, message: "Session destroy failed" });
-//         }
-//         // Clear the session cookie after session destroy
-//         res.clearCookie('connect.sid', { path: '/' });
-//         return res.status(200).json({ success: true, message: "Logged out successfully" });
-//       });
-//     } else {
-//       // Clear cookie if session doesn't exist
-//       res.clearCookie('connect.sid', { path: '/' });
-//       return res.status(200).json({ success: true, message: "Logged out successfully" });
-//     }
-//   });
-// });
-
-
 // =================   FACEBOOK OAUTH =======================
 
 if(features.enableFacebookLogin){
@@ -199,7 +156,6 @@ router.post('/apple/callback', (req, res, next) => {
       }
     }
     else {
-      console.log('');
       console.log('Session ID:', req.sessionID);
       console.log('Session Data (pre-login):', req.session);
       console.log('User about to be logged in:', user);

@@ -549,13 +549,13 @@ const login = (req, res, next) => {
 
       // 4️⃣ tempToken logic goes here in controller
       try {
-        if (!user.tempToken) {
-          if (!user.isVerifiedByEmail || !user.isVerifiedByPhone) {
-            const tempToken = generateRandomToken(32);
-            user.tempToken = tempToken;
-            await user.save();
-          }
-        }
+        // if (!user.tempToken) {
+        //   if (!user.isVerifiedByEmail || !user.isVerifiedByPhone) {
+        //     const tempToken = generateRandomToken(32);
+        //     user.tempToken = tempToken;
+        //     await user.save();
+        //   }
+        // }
         if(user.registerToken){
           user.registerToken = null;
           await user.save();
@@ -586,54 +586,6 @@ const login = (req, res, next) => {
     });
   })(req, res, next);
 };
-
-// ─── Session-based login starts here ───
-
-//     req.session.regenerate((err) => {
-//       if (err) {
-//         console.error("Session regeneration error:", err);
-//         return res.status(400).json({
-//           success: false,
-//           message: "Session error",
-//         });
-//       }
-
-//       // Store only minimal info
-//       req.session.userId = user._id;
-//       req.session.loggedInAt = Date.now();
-
-//       req.session.save((err) => {
-//         if (err) {
-//           console.error("Session save error:", err);
-//           return res.status(400).json({
-//             success: false,
-//             message: "Session error",
-//           });
-//         }
-//         return res.status(200).json({
-//           success: true,
-//           message: "Login successful",
-//           data: {
-//             user: {
-//               firstName: user.firstName,
-//               lastName: user.lastName,
-//               gender: user.gender,
-//               isVerifiedByEmail: user.isVerifiedByEmail,
-//               isVerifiedByPhone: user.isVerifiedByPhone,
-//               tempToken: user.tempToken,
-//             },
-//           },
-//         });
-//       });
-//     });
-//   } catch (error) {
-//     console.error("Error during login:", error);
-//     return res.status(500).json({
-//       success: false,
-//       message: "Internal server error",
-//     });
-//   }
-// };
 
 // Forgot password
 const forgotPassword = async (req, res) => {
