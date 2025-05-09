@@ -16,6 +16,7 @@ const {
 const { sendVerificationSMS, sendOtpSMS } = require("../utils/twilio.js");
 const features = require("../config/features.js");
 const passport = require("passport");
+const RememberMeToken = require("../models/rememberToken.js");
 
 // Register
 const register = async (req, res) => {
@@ -512,13 +513,13 @@ const continueToDashboard = async (req, res, next) => {
 // Login
 const login = (req, res, next) => {
   // 1️⃣ Validate input (loginID & password)
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      success: false,
-      message: errors.array()[0].msg,
-    });
-  }
+  // const errors = validationResult(req);
+  // if (!errors.isEmpty()) {
+  //   return res.status(400).json({
+  //     success: false,
+  //     message: errors.array()[0].msg,
+  //   });
+  // }
 
   // 2️⃣ Authenticate via Passport LocalStrategy
   passport.authenticate("local", (err, user, info) => {
@@ -547,26 +548,64 @@ const login = (req, res, next) => {
         });
       }
 
-      // 4️⃣ tempToken logic goes here in controller
-      try {
-        // if (!user.tempToken) {
-        //   if (!user.isVerifiedByEmail || !user.isVerifiedByPhone) {
-        //     const tempToken = generateRandomToken(32);
-        //     user.tempToken = tempToken;
-        //     await user.save();
-        //   }
-        // }
-        if(user.registerToken){
-          user.registerToken = null;
+          // 4️⃣ Clear registerToken if present
+      if (user.registerToken) {
+        user.registerToken = null;
+        try {
           await user.save();
+        } catch (saveErr) {
+          console.error('Error clearing registerToken:', saveErr);
+          return res.status(500).json({
+              success: false,
+              message: "Error during tokenisation",
+          })
         }
-      } catch (error) {
-        console.error("TempToken error:", tokenErr);
-        return res.status(500).json({
-          success: false,
-          message: "Error during tokenisation",
-        });
       }
+ // 5️⃣ Issue remember‑me token if requested
+
+    //   // 4. If “Remember Me” checked, issue remember‑me token
+    //   if (req.body.rememberMe) {
+    //   // This middleware triggers RememberMeStrategy.issue and sets the cookie
+    //     return passport.authenticate('remember-me')(req, res, () => {
+    //       // now both session cookie and remember_me cookie are set
+    //      return res.status(200).json({ 
+    //         success:true,
+    //         message: "Login successful",
+    //         data: {
+    //           user: {
+    //             firstName: user.firstName,
+    //             lastName: user.lastName,
+    //             gender: user.gender,
+    //             isVerifiedByEmail: user.isVerifiedByEmail,
+    //             isVerifiedByPhone: user.isVerifiedByPhone,
+    //             tempToken: user.tempToken,
+    //           }
+    //         }
+    //     })
+    //   })
+    // }
+    
+     // Issue Remember‑Me token if requested
+     if (req.body.rememberMe) {
+      // 1️⃣ generate a secure random token
+      const token = generateRandomToken(64);
+
+      // 2️⃣ save it in the DB with expiry (e.g. 30 days)
+      await RememberMeToken.create({
+        token,
+        userId: user._id,
+        expiresAt: Date.now() + 7*24*60*60*1000
+      });
+
+      // 3️⃣ set it as an HttpOnly, persistent cookie
+      res.cookie('remember_me', token, {
+        path: '/',
+        httpOnly: true,
+        maxAge: 7 * 24 * 60 * 60 * 1000,    // 30 days
+        sameSite: 'lax',                     // or 'none' + secure:true in prod
+        secure: false                        // set true under HTTPS
+      });
+    }
 
       // 5️⃣ Send response
       return res.status(200).json({

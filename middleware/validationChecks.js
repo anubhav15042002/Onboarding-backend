@@ -193,24 +193,6 @@ const validateContinueToDashboard = [
     .escape(),
 ];
 
-// Login middleware
-// const validateLogin = [
-//   body("loginID")
-//     .notEmpty()
-//     .withMessage("Login ID is required")
-//     .trim()
-//     .escape(),
-
-//   body("password")
-//     .notEmpty()
-//     .withMessage("Password is required")
-//     // .isLength({ min: 8 })
-//     // .withMessage("Password must be at least 8 characters long")
-//     .trim()
-//     .escape(),
-// ];
-
-
 // Utility functions to validate email and phone number
 const validateEmail = (email) => {
   const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;

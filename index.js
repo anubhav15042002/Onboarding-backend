@@ -1,5 +1,6 @@
 require("dotenv").config();
 const express = require("express");
+const cookieParser = require('cookie-parser');
 const cors = require("cors");
 const connectDB = require("./config/db");
 const router = require("./routes");
@@ -13,6 +14,7 @@ const app = express();
 const port = process.env.PORT;
 connectDB();
 
+app.use(cookieParser());  
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(session({
@@ -27,7 +29,7 @@ app.use(session({
     httpOnly: true,
     secure: false, // set to true in production (HTTPS) (imp.)
     sameSite: "lax", // check between lax and none in production 
-    maxAge: 24 * 60 * 60 * 1000,
+    maxAge: 5 * 60 * 60 * 1000,
   },
 }));
 
@@ -40,6 +42,7 @@ app.use(
 
 app.use(passport.initialize());
 app.use(passport.session());
+app.use(passport.authenticate('remember-me'));   // re‑login via remember‑me token if no session 
 
 // Add logging to debug sessions
 app.use((req, res, next) => {
