@@ -35,7 +35,7 @@ const sendVerificationEmail = async (email, firstName, verificationCode) => {
             <p style="margin: 0 0 10px;">This OTP is valid for 10 minutes. Please use it to complete your verification process.</p>
             <p style="margin: 0 0 10px;">If you didn't request this OTP, please ignore this email or contact our support team immediately.</p>
             <br>
-            <p style="margin: 0;">Best,<br>42 Works Onboarding Team</p>
+            <p style="margin: 0;">Best,<br>Team RSS Accountancy</p>
           </td>
         </tr>
       </tbody>
@@ -93,7 +93,7 @@ const sendOTPEmail = async (email, firstName, otp) => {
             <p style="margin: 0 0 10px;">This OTP is valid for 10 minutes. Please use it to complete your forgot password process.</p>
             <p style="margin: 0 0 10px;">If you didn't request this OTP, please ignore this email or contact our support team immediately.</p>
             <br>
-            <p style="margin: 0;">Best,<br>42 Works Onboarding Team</p>
+            <p style="margin: 0;">Best,<br>Team RSS Accountancy</p>
           </td>
         </tr>
       </tbody>
