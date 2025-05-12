@@ -669,7 +669,7 @@ const forgotPassword = async (req, res) => {
       if (validateEmail(loginID)) {
         via = "email";
         if (features.enableNodemailer) {
-          await sendOTPEmail(loginID, otp); // Send OTP via email
+          await sendOTPEmail(loginID, user.firstName, otp); // Send OTP via email
         } else {
           return res.status(503).json({
             success: false,
@@ -843,7 +843,7 @@ const resendOTP = async (req, res) => {
 
           await user.save();
 
-          await sendOTPEmail(user.email, otp);
+          await sendOTPEmail(user.email, user.firstName, otp);
 
           return res.status(200).json({
             success: true,

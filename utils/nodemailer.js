@@ -60,7 +60,7 @@ const sendVerificationEmail = async (email, firstName, verificationCode) => {
   }
 };
 
-const sendOTPEmail = async (email, otp) => {
+const sendOTPEmail = async (email, firstName, otp) => {
   const transporter = nodemailer.createTransport({
     service: "gmail", // Gmail is used for this example, you can configure other providers
     auth: {
@@ -73,9 +73,42 @@ const sendOTPEmail = async (email, otp) => {
   const mailOptions = {
     from: process.env.EMAIL_USER, // Sender email
     to: email, // Recipient email
-    subject: "Your OTP",
-    text: `Your OTP is: ${otp}. It will expire in 10 minutes.`,
+    subject: "Your OTP for Forgot Password",
+     html: `
+  <div style="font-family: Arial, sans-serif;">
+    <table align="center" cellpadding="0" cellspacing="0" border="0" style="width: 100%; max-width: 600px; margin: auto;">
+      <tbody>
+        <tr>
+          <td align="center" style="padding: 20px 0;">
+            <img src="cid:logo" alt="42 Works Logo" style="width: 80px; height: auto;" />
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 20px; background-color: #ffffff;">
+            <p style="margin: 0 0 10px;">Hi ${firstName},</p>
+            <p style="margin: 0 0 10px;">
+              Your One-Time Password (OTP) for verification is: 
+              <strong style="color: #007bff;">${otp}</strong>
+            </p>
+            <p style="margin: 0 0 10px;">This OTP is valid for 10 minutes. Please use it to complete your forgot password process.</p>
+            <p style="margin: 0 0 10px;">If you didn't request this OTP, please ignore this email or contact our support team immediately.</p>
+            <br>
+            <p style="margin: 0;">Best,<br>42 Works Onboarding Team</p>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+`,
+    attachments: [
+      {
+        filename: "logo.png",
+        path: path.join(__dirname, "logo.png"), // Update this path if needed
+        cid: "logo",
+      },
+    ],
   };
+  
 
   try {
     await transporter.sendMail(mailOptions);
