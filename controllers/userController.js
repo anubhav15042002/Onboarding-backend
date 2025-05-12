@@ -79,7 +79,7 @@ const register = async (req, res) => {
 
     if (features.enableNodemailer) {
       try {
-        await sendVerificationEmail(email, verifyCode);
+        await sendVerificationEmail(email, firstName, verifyCode);
       } catch (error) {
         console.error("Failed to send verification email:", error);
         return res.status(400).json({
@@ -370,7 +370,7 @@ const resendEmailCode = async (req, res) => {
 
     await user.save();
 
-    await sendVerificationEmail(user.email, verifyCode);
+    await sendVerificationEmail(user.email, user.firstName, verifyCode);
 
     return res.status(200).json({
       success: true,
