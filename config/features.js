@@ -2,7 +2,7 @@ const features = {
     enableGoogleLogin: true,
     enableFacebookLogin: true,
     enableAppleLogin: true,
-    enableTwilio: false,
+    enableTwilio: true,
     enableNodemailer: true,
 }
 
